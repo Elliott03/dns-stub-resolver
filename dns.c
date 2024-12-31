@@ -155,10 +155,26 @@ void unpackHeader() {
     responseBufIndex += 2;
 }
 int unpackQuestion() { // This function assumes we have 1 question
-    char* question = malloc(strlen(&responseBuf[responseBufIndex]) + 1);
-    strcpy(question, &responseBuf[responseBufIndex]);
-    dnsResponse.query.name = malloc(strlen(question) + 1);
-    responseBufIndex += strlen(question) + 1;
+    dnsResponse.query.name = malloc(strlen(&responseBuf[responseBufIndex]) + 1);
+    if (dnsResponse.query.name == NULL) {
+        fprintf(stderr, "Error allocating memory to dnsResponse.query.name\n");
+        return 1;
+    }
+    strcpy(dnsResponse.query.name, &responseBuf[responseBufIndex]);
+    responseBufIndex += strlen(dnsResponse.query.name) + 1;
+    
+    memcpy(&dnsResponse.query.type, &responseBuf[responseBufIndex], 2);
+    dnsResponse.query.type = ntohs(dnsResponse.query.type);
+    responseBufIndex += 2;
+
+    memcpy(&dnsResponse.query.class, &responseBuf[responseBufIndex], 2);
+    dnsResponse.query.class = ntohs(dnsResponse.query.class);
+    responseBufIndex += 2;
+    return 0;
+}
+int unpackAnswers() {
+
+    return 0;
 }
 int main(int argc, char** argv) {
     if (argv[1] == NULL) {
@@ -173,7 +189,7 @@ int main(int argc, char** argv) {
         fprintf(stderr, "Error allocating memory to queryBuf.\n");
         return 1;
     }
-
+    packHeader();
     if (packQuestion(argv[1]) == 1) {
         fprintf(stderr, "Error in packQuestion()\n");
         free(queryBuf);
@@ -198,6 +214,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     printf("client sent %d bytes to %s\n", numBytes, googleResolverIpv4);
+    free(queryBuf);
     socklen_t addrLen = sizeof(servinfo);
     if ((numBytes = recvfrom(sockfd, responseBuf, MAX_BUF_SIZE, 0, (struct sockaddr*)&servinfo, &addrLen)) == -1) {
         fprintf(stderr, "recvfrom failed\n");
@@ -213,8 +230,16 @@ int main(int argc, char** argv) {
         return 1;
     } 
     unpackHeader();
+    if (unpackQuestion() != 0) {
+        fprintf(stderr, "Error unpacking question");
+        return 1;
+    }
+    unpackAnswers();
     
 
 
-    free(queryBuf);
+
+
+
+    free(dnsResponse.query.name);
 }
